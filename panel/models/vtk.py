@@ -9,7 +9,8 @@ from bokeh.models import HTMLBox
 
 from ..compiler import CUSTOM_MODELS
 
-vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
+#vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
+vtk_cdn = "http://localhost:8080/vtk.js"
 
 
 class VTKPlot(HTMLBox):
