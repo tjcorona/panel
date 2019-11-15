@@ -339,6 +339,16 @@ def render_window_serializer(render_window):
     sceneComponents = []
     textureToSave = {}
 
+    def extractDataSets(dataObj):
+        if dataObj.IsA('vtkCompositeDataSet'):
+            it = dataObj.NewIterator()
+            it.InitTraversal()
+            while not it.IsDoneWithTraversal():
+                yield from extractDataSets(it.GetCurrentDataObject())
+                it.GoToNextItem()
+        else:
+            yield dataObj
+
     for renderer in renderers:
         renProps = renderer.GetViewProps()
         for rpIdx in range(renProps.GetNumberOfItems()):
@@ -349,140 +359,131 @@ def render_window_serializer(render_window):
                 mapper = renProp.GetMapper()
                 if mapper is None:
                     continue
-                dataObject = mapper.GetInputDataObject(0, 0)
-                dataset = None
-
-                if dataObject.IsA('vtkCompositeDataSet'):
-                    if dataObject.GetNumberOfBlocks() == 1:
-                        dataset = dataObject.GetBlock(0)
-                    else:
-                        gf = vtk.vtkCompositeDataGeometryFilter()
-                        gf.SetInputData(dataObject)
-                        gf.Update()
-                        dataset = gf.GetOutput()
-                elif dataObject.IsA('vtkUnstructuredGrid'):
-                    gf = vtk.vtkGeometryFilter()
-                    gf.SetInputData(dataObject)
-                    gf.Update()
-                    dataset = gf.GetOutput()
-                else:
-                    dataset = mapper.GetInput()
-
-                if dataset and not isinstance(dataset, (vtk.vtkPolyData)):
-                    # All data must be PolyData surfaces!
-                    gf = vtk.vtkGeometryFilter()
-                    gf.SetInputData(dataset)
-                    gf.Update()
-                    dataset = gf.GetOutputDataObject(0)
-
-                if dataset and dataset.GetPoints():
-                    componentName = str(id(renProp))
-                    scalarVisibility = mapper.GetScalarVisibility()
-                    arrayAccessMode = mapper.GetArrayAccessMode()
-                    colorArrayName = mapper.GetArrayName() if arrayAccessMode == 1 else mapper.GetArrayId()
-                    colorMode = mapper.GetColorMode()
-                    scalarMode = mapper.GetScalarMode()
-                    lookupTable = mapper.GetLookupTable()
-
-                    dsAttrs = None
-                    arrayLocation = ''
-
-                    if scalarVisibility:
-                        if scalarMode == 0:
-                            # By default (ScalarModeToDefault), the filter will use point data,
-                            # and if no point data is available, then cell data is used
-                            # https://vtk.org/doc/nightly/html/classvtkMapper.html#af330900726eb1a5e18e5f7f557306e52
-                            if dataset.GetPointData().GetNumberOfArrays() >= 1:
-                                dsAttrs = dataset.GetPointData()
-                                arrayLocation = 'pointData'
-                            else:
-                                dsAttrs = dataset.GetCellData()
-                                arrayLocation = 'cellData'
-                        if scalarMode == 3 or scalarMode == 1: # VTK_SCALAR_MODE_USE_POINT_FIELD_DATA or VTK_SCALAR_MODE_USE_POINT_DATA
-                            dsAttrs = dataset.GetPointData()
-                            arrayLocation = 'pointData'
-                        elif scalarMode == 4 or scalarMode == 2: # VTK_SCALAR_MODE_USE_CELL_FIELD_DATA or VTK_SCALAR_MODE_USE_CELL_DATA
-                            dsAttrs = dataset.GetCellData()
-                            arrayLocation = 'cellData'
-
-                    colorArray = None
-                    dataArray = None
-
-                    if dsAttrs:
-                        if colorArrayName >= 0:
-                            dataArray = dsAttrs.GetArray(colorArrayName)
-                        elif dsAttrs.GetNumberOfArrays() >= 1:
-                            dataArray = dsAttrs.GetArray(0)
-
-                    if dataArray:
-                        # component = -1 => let specific instance get scalar from vector before mapping
-                        colorArray = lookupTable.MapScalars(dataArray, colorMode, -1)
-                        colorArrayName = '__CustomRGBColorArray__'
-                        colorArray.SetName(colorArrayName)
-                        colorMode = 0
-                    else:
-                        colorArrayName = ''
-
-                    colorArrayInfo = {
-                        'colorArray': colorArray,
-                        'location': arrayLocation
-                    }
-
-                    _write_data_set(scDirs, dataset, colorArrayInfo, newDSName=componentName, compress=doCompressArrays)
-
-                    # Handle texture if any
-                    textureName = None
-                    if renProp.GetTexture() and renProp.GetTexture().GetInput():
-                        textureData = renProp.GetTexture().GetInput()
-                        textureName = 'texture_%d' % _get_object_id(textureData, objIds)
-                        textureToSave[textureName] = textureData
-
-                    representation = renProp.GetProperty().GetRepresentation() if hasattr(renProp, 'GetProperty') else 2
-                    if representation == 1:
-                        colorToUse = renProp.GetProperty().GetColor() if hasattr(renProp, 'GetProperty') else [1, 1, 1]
-                    else:
-                        colorToUse = renProp.GetProperty().GetDiffuseColor() if hasattr(renProp, 'GetProperty') else [1, 1, 1]
-                    pointSize = renProp.GetProperty().GetPointSize() if hasattr(renProp, 'GetProperty') else 1.0
-                    opacity = renProp.GetProperty().GetOpacity() if hasattr(renProp, 'GetProperty') else 1.0
-                    edgeVisibility = renProp.GetProperty().GetEdgeVisibility() if hasattr(renProp, 'GetProperty') else False
-
-                    p3dPosition = renProp.GetPosition() if renProp.IsA('vtkProp3D') else [0, 0, 0]
-                    p3dScale = renProp.GetScale() if renProp.IsA('vtkProp3D') else [1, 1, 1]
-                    p3dOrigin = renProp.GetOrigin() if renProp.IsA('vtkProp3D') else [0, 0, 0]
-                    p3dRotateWXYZ = renProp.GetOrientationWXYZ() if renProp.IsA('vtkProp3D') else [0, 0, 0, 0]
-
-                    sceneComponents.append({
-                        "name": componentName,
-                        "type": "httpDataSetReader",
-                        "httpDataSetReader": {
-                            "url": componentName
-                        },
-                        "actor": {
-                            "origin": p3dOrigin,
-                            "scale": p3dScale,
-                            "position": p3dPosition,
-                        },
-                        "actorRotation": p3dRotateWXYZ,
-                        "mapper": {
-                            "colorByArrayName": colorArrayName,
-                            "colorMode": colorMode,
-                            "scalarMode": scalarMode
-                        },
-                        "property": {
-                            "representation": representation,
-                            "edgeVisibility": edgeVisibility,
-                            "diffuseColor": colorToUse,
-                            "pointSize": pointSize,
-                            "opacity": opacity
-                        },
-                        "lookupTable": {
-                            "tableRange": lookupTable.GetRange(),
-                            "hueRange": lookupTable.GetHueRange() if hasattr(lookupTable, 'GetHueRange') else [0.5, 0]
-                        }
-                    })
-
-                    if textureName:
-                        sceneComponents[-1]['texture'] = textureName
+                for ipIdx in range(mapper.GetNumberOfInputPorts()):
+                    for connIdx in range(mapper.GetNumberOfInputConnections(ipIdx)):
+                        dataObject = mapper.GetInputDataObject(ipIdx, connIdx)
+                        if dataObject is None:
+                            continue
+                        for dataset in extractDataSets(dataObject):
+                            if dataset and not isinstance(dataset, (vtk.vtkPolyData)):
+                                # All data must be PolyData surfaces!
+                                gf = vtk.vtkGeometryFilter()
+                                gf.SetInputData(dataset)
+                                gf.Update()
+                                dataset = gf.GetOutputDataObject(0)
+            
+                            if dataset and dataset.GetPoints():
+                                componentName = str(_get_object_id(dataset, objIds))
+                                scalarVisibility = mapper.GetScalarVisibility()
+                                arrayAccessMode = mapper.GetArrayAccessMode()
+                                colorArrayName = mapper.GetArrayName() if arrayAccessMode == 1 else mapper.GetArrayId()
+                                colorMode = mapper.GetColorMode()
+                                scalarMode = mapper.GetScalarMode()
+                                lookupTable = mapper.GetLookupTable()
+            
+                                dsAttrs = None
+                                arrayLocation = ''
+            
+                                if scalarVisibility:
+                                    if scalarMode == 0:
+                                        # By default (ScalarModeToDefault), the filter will use point data,
+                                        # and if no point data is available, then cell data is used
+                                        # https://vtk.org/doc/nightly/html/classvtkMapper.html#af330900726eb1a5e18e5f7f557306e52
+                                        if dataset.GetPointData().GetNumberOfArrays() >= 1:
+                                            dsAttrs = dataset.GetPointData()
+                                            arrayLocation = 'pointData'
+                                        else:
+                                            dsAttrs = dataset.GetCellData()
+                                            arrayLocation = 'cellData'
+                                    if scalarMode == 3 or scalarMode == 1: # VTK_SCALAR_MODE_USE_POINT_FIELD_DATA or VTK_SCALAR_MODE_USE_POINT_DATA
+                                        dsAttrs = dataset.GetPointData()
+                                        arrayLocation = 'pointData'
+                                    elif scalarMode == 4 or scalarMode == 2: # VTK_SCALAR_MODE_USE_CELL_FIELD_DATA or VTK_SCALAR_MODE_USE_CELL_DATA
+                                        dsAttrs = dataset.GetCellData()
+                                        arrayLocation = 'cellData'
+            
+                                colorArray = None
+                                dataArray = None
+            
+                                if dsAttrs:
+                                    if colorArrayName >= 0:
+                                        dataArray = dsAttrs.GetArray(colorArrayName)
+                                    elif dsAttrs.GetNumberOfArrays() >= 1:
+                                        dataArray = dsAttrs.GetArray(0)
+            
+                                if dataArray:
+                                    # component = -1 => let specific instance get scalar from vector before mapping
+                                    colorArray = lookupTable.MapScalars(dataArray, colorMode, -1)
+                                    colorArrayName = '__CustomRGBColorArray__'
+                                    colorArray.SetName(colorArrayName)
+                                    colorMode = 0
+                                else:
+                                    colorArrayName = ''
+            
+                                colorArrayInfo = {
+                                    'colorArray': colorArray,
+                                    'location': arrayLocation
+                                }
+            
+                                _write_data_set(scDirs, dataset, colorArrayInfo, newDSName=componentName, compress=doCompressArrays)
+            
+                                # Handle texture if any
+                                textureName = None
+                                if renProp.GetTexture() and renProp.GetTexture().GetInput():
+                                    textureData = renProp.GetTexture().GetInput()
+                                    textureName = 'texture_%d' % _get_object_id(textureData, objIds)
+                                    textureToSave[textureName] = textureData
+            
+                                representation = renProp.GetProperty().GetRepresentation() if hasattr(renProp, 'GetProperty') else 2
+                                if representation == 1:
+                                    colorToUse = renProp.GetProperty().GetColor() if hasattr(renProp, 'GetProperty') else [1, 1, 1]
+                                else:
+                                    colorToUse = renProp.GetProperty().GetDiffuseColor() if hasattr(renProp, 'GetProperty') else [1, 1, 1]
+                                pointSize = renProp.GetProperty().GetPointSize() if hasattr(renProp, 'GetProperty') else 1.0
+                                opacity = renProp.GetProperty().GetOpacity() if hasattr(renProp, 'GetProperty') else 1.0
+                                edgeVisibility = renProp.GetProperty().GetEdgeVisibility() if hasattr(renProp, 'GetProperty') else False
+            
+                                p3dPosition = renProp.GetPosition() if renProp.IsA('vtkProp3D') else [0, 0, 0]
+                                p3dScale = renProp.GetScale() if renProp.IsA('vtkProp3D') else [1, 1, 1]
+                                p3dOrigin = renProp.GetOrigin() if renProp.IsA('vtkProp3D') else [0, 0, 0]
+                                p3dRotateWXYZ = renProp.GetOrientationWXYZ() if renProp.IsA('vtkProp3D') else [0, 0, 0, 0]
+            
+                                sceneComponents.append({
+                                    "name": componentName,
+                                    "type": "httpDataSetReader",
+                                    "httpDataSetReader": {
+                                        "url": componentName
+                                    },
+                                    "actor": {
+                                        "origin": p3dOrigin,
+                                        "scale": p3dScale,
+                                        "position": p3dPosition,
+                                    },
+                                    "actorRotation": p3dRotateWXYZ,
+                                    "mapper": {
+                                        "vtkClass": mapper.GetClassName(),
+                                        "id": _get_object_id(mapper, objIds),
+                                        "port": ipIdx,
+                                        "connection": connIdx,
+                                        "colorByArrayName": colorArrayName,
+                                        "colorMode": colorMode,
+                                        "scalarMode": scalarMode
+                                    },
+                                    "property": {
+                                        "representation": representation,
+                                        "edgeVisibility": edgeVisibility,
+                                        "diffuseColor": colorToUse,
+                                        "pointSize": pointSize,
+                                        "opacity": opacity
+                                    },
+                                    "lookupTable": {
+                                        "tableRange": lookupTable.GetRange(),
+                                        "hueRange": lookupTable.GetHueRange() if hasattr(lookupTable, 'GetHueRange') else [0.5, 0]
+                                    }
+                                })
+            
+                                if textureName:
+                                    sceneComponents[-1]['texture'] = textureName
 
     # Save texture data if any
     for key, val in textureToSave.items():
