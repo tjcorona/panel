@@ -9,6 +9,34 @@ https://github.com/Kitware/vtk-js/blob/master/LICENSE
 """
 
 import vtk
+import ctypes, io, json, zipfile
+
+def render_window_serializer_2(render_window):
+    """
+    Function to convert a vtk render window in a list of 2-tuple where first value
+    correspond to a relative file path in the `vtkjs` directory structure and values
+    of the binary content of the corresponding file.
+    """
+    render_window.OffScreenRenderingOn()
+    render_window.Render()
+
+    buffered_exporter = vtk.vtkVtkJSSceneExporter()
+    buffered_archiver = vtk.vtkVtkJSBufferedArchiver()
+    buffered_exporter.SetArchiver(buffered_archiver)
+    buffered_exporter.SetRenderWindow(render_window)
+    buffered_exporter.Write()
+
+    ptr = buffered_archiver.GetBufferAddress()
+    address = int(ptr[1:-7], 16)
+    ArrayType = ctypes.c_byte*buffered_archiver.GetBufferSize()
+    b = ArrayType.from_address(address)
+
+    stream = io.BytesIO(b)
+    #vtkjs = stream.read()
+    #return vtkjs
+    return stream
+
+import vtk
 import os, sys, json, random, string, hashlib, zipfile
 
 from io import BytesIO
@@ -517,5 +545,23 @@ def render_window_serializer(render_window):
                 zf.close()
         in_memory.seek(0)
         vtkjs = in_memory.read()
-    return vtkjs
 
+#        in_memory.seek(0)
+#        with zipfile.ZipFile(in_memory) as zf:
+#             for info in zf.infolist():
+#                 if info.filename == 'index.json':
+#                     data = zf.read(info.filename)
+#                     print(data)
+
+#    print('____________________________________________')
+#
+#    vtkjs2 = render_window_serializer_2(render_window)
+#    with zipfile.ZipFile(vtkjs2) as zf:
+#         for info in zf.infolist():
+#             if info.filename == 'index.json':
+#                 data = zf.read(info.filename)
+#                 print(data)
+#    vtkjs2.seek(0)
+
+#    return vtkjs2.read()
+    return vtkjs
