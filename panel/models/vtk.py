@@ -11,7 +11,7 @@ from ..compiler import CUSTOM_MODELS
 
 #vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
 vtk_cdn = "http://localhost:8080/vtk.js"
-
+jszip_cdn = "https://unpkg.com/jszip@3.1.5/dist/jszip.js"
 
 class VTKPlot(HTMLBox):
     """
@@ -19,9 +19,11 @@ class VTKPlot(HTMLBox):
     a Bokeh plot.
     """
 
-    __javascript__ = [vtk_cdn]
+    __javascript__ = [vtk_cdn, jszip_cdn]
 
-    __js_require__ = {"paths": {"vtk": vtk_cdn[:-3]},
+    __js_require__ = {"paths": {"vtk": vtk_cdn[:-3],
+                                "jszip": jszip_cdn[:-3]},
+                      "exports": {"jszip": "jszip"},
                       "shim": {"vtk": {"exports": "vtk"}}}
 
     __implementation__ = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'vtk.ts')

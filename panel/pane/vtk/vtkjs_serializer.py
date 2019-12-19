@@ -32,9 +32,25 @@ def render_window_serializer_2(render_window):
     b = ArrayType.from_address(address)
 
     stream = io.BytesIO(b)
-    #vtkjs = stream.read()
-    #return vtkjs
-    return stream
+
+    scDirs = []
+
+    with zipfile.ZipFile(stream) as zf:
+        for info in zf.infolist():
+            data = zf.read(info.filename)
+            scDirs.append([info.filename, data])
+
+    # create binary stream of the vtkjs directory structure
+    compression = zipfile.ZIP_DEFLATED
+    with io.BytesIO() as in_memory:
+        zf = zipfile.ZipFile(in_memory, mode="w")
+        for dirPath, data in (scDirs):
+            zf.writestr(dirPath, data, compress_type=compression)
+        zf.close()
+        in_memory.seek(0)
+        vtkjs = in_memory.read()
+
+    return vtkjs
 
 import vtk
 import os, sys, json, random, string, hashlib, zipfile
@@ -355,6 +371,10 @@ def render_window_serializer(render_window):
     correspond to a relative file path in the `vtkjs` directory structure and values
     of the binary content of the corresponding file.
     """
+
+    if True:
+        return render_window_serializer_2(render_window)
+
     render_window.OffScreenRenderingOn() # to not pop a vtk windows
     render_window.Render()
     renderers = render_window.GetRenderers()
