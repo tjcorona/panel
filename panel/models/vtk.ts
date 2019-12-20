@@ -1,198 +1,173 @@
 import * as p from "core/properties"
-import {clone} from "core/util/object";
 import {HTMLBox, HTMLBoxView} from "models/layouts/html_box";
-import {div} from "core/dom";
+
+const CONTEXT_NAME = '__zipFileContent__';
 
 export class VTKPlotView extends HTMLBoxView {
-    model: VTKPlot
-    protected _vtk: any
-    protected _jszip: any
-    protected _container: HTMLDivElement
-    protected _rendererEl: any
-    protected _renderer: any
-    protected _camera: any
-    protected _interactor: any
-    protected _setting: boolean = false
+  model: VTKPlot
+  protected _vtk: any
+  protected _jszip: any
+  protected _synchContext: any
+  protected _openGLRenderWindow: any
+  protected _renderWindow: any
+  protected _renderer: any
+  protected _interactor: any
+  protected _state: any
+  protected _arrays: any
+  public getArray: any
+  public resize: any
+  public getState: any
+  public setState: any
+  public registerArray: any
     
-    initialize(): void {
-	super.initialize()
-	this._vtk = (window as any).vtk
-	this._jszip = (window as any).JSZip
-	this._container = div({
-	    style: {
-		width: "100%",
-		height: "100%"
-	    }
-	});
-    }
-    
-    after_layout(): void {
-	super.after_layout()
-	if (!this._rendererEl) {
-	    this._rendererEl = this._vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
-		rootContainer: this.el,
-		container: this._container
-	    });
-	    this._renderer = this._rendererEl.getRenderer()
-	    this._interactor = this._rendererEl.getInteractor()
-	    this._camera = this._renderer.getActiveCamera()
-	    this._plot()
-	    this._camera.onModified(() => this._get_camera_state())
-	    this._key_binding()
-	}
-    }
+  initialize(): void {
+      console.log('initialize');
+      super.initialize();
+      this._vtk = (window as any).vtk;
+      this._jszip = (window as any).JSZip;
+      this._arrays = {};
+      // Internal closures
+      this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
+      this.resize = () => {
+	  if (this.el && this._openGLRenderWindow) {
+              const dims = this.el.getBoundingClientRect();
+              const devicePixelRatio = window.devicePixelRatio || 1;
+              this._openGLRenderWindow.setSize(
+		  Math.floor(dims.width * devicePixelRatio),
+		  Math.floor(dims.height * devicePixelRatio)
+              );
+              this._renderWindow.render();
+	  }
+      };
+      this.setState = (v: any) => {
+	  console.log('setState', v)
+	  this._state = v;
+      };
+      this.getState = () => this._state;
+      this.registerArray = (hash: string, array: any) =>
+	  {
+	      console.log('registerArray', hash);
+	      this._arrays[hash] = array;
+	  };
+      window.addEventListener("resize", this.resize);
+  }
 
-    connect_signals(): void {
-	super.connect_signals()
-	this.connect(this.model.properties.data.change, () => this._plot())
-	this.connect(this.model.properties.camera.change, () => this._set_camera_state())
-	this.connect(this.model.properties.enable_keybindings.change, () => this._key_binding())
-    }
-
-    _key_binding(): void {
-	if (this.model.enable_keybindings) {
-	    document.querySelector('body')!.addEventListener('keypress',this._interactor.handleKeyPress)
-	    document.querySelector('body')!.addEventListener('keydown',this._interactor.handleKeyDown)
-      document.querySelector('body')!.addEventListener('keyup',this._interactor.handleKeyUp)
-	} else {
-	    document.querySelector('body')!.removeEventListener('keypress',this._interactor.handleKeyPress)
-	    document.querySelector('body')!.removeEventListener('keydown',this._interactor.handleKeyDown)
-	    document.querySelector('body')!.removeEventListener('keyup',this._interactor.handleKeyUp)
-	}
-    }
-
-    render() {
-	super.render()
-	if (!(this._container === this.el.childNodes[0]))
-	    this.el.appendChild(this._container)
-    }
-    
-    _get_camera_state(): void {
-	if (!this._setting) {
-	    this._setting = true;
-	    const state = clone(this._camera.get());
-	    delete state.classHierarchy;
-	    delete state.vtkObject;
-	    delete state.vtkCamera;
-	    delete state.viewPlaneNormal;
-	    this.model.camera = state;
-	    this._setting = false;
-	}
-    }
-    
-    _set_camera_state(): void {
-	if (!this._setting) {
-	    this._setting = true;
-	    try {
-		this._camera.set(this.model.camera);
-	    } finally {
-		this._setting = false;
-	    }
-	    this._rendererEl.getRenderWindow().render();
-	}
-    }
-    
-    _load_zip_content(zipContent: string, container: HTMLDivElement): void {
-	const fileContents: any = { state: null, arrays: {} };
+  after_layout(): void {
+      console.log('after_layout');
+    super.after_layout()
+    if (!this._synchContext) {
+	const container = this.el;
+  
+	const vtk: any = this._vtk;
 	
-	function getArray(hash: string, _1: any): Promise<string> {
-	    return Promise.resolve(fileContents.arrays[hash]);
-	}
-
-	let vtk: any = this._vtk;
-	let JSZip: any = this._jszip
-  
-	const jszip = new JSZip();
-	jszip.loadAsync(zipContent).then(function(zip: any) {
-	    let workLoad: number = 0;
-  
-	    function done(): void {
-		if (workLoad !== 0) {
-		    return;
-		}
-		
-		// Synchronize context
-		const synchronizerContext = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.getSynchronizerContext(
-		    "__zipFileContent__"
-		);
-		synchronizerContext.setFetchArrayFunction(getArray);
-		
-		// openGLRenderWindow
-		const openGLRenderWindow = vtk.Rendering.OpenGL.vtkRenderWindow.newInstance();
-		openGLRenderWindow.setContainer(container);
-		
-		// RenderWindow (synchronizable)
-		const renderWindow = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.newInstance({
-		    synchronizerContext,
-		});
-		renderWindow.addView(openGLRenderWindow);
-		
-		// Size handling
-		function resize(): void {
-		    const dims = container.getBoundingClientRect();
-		    const devicePixelRatio = window.devicePixelRatio || 1;
-		    openGLRenderWindow.setSize(
-			Math.floor(dims.width * devicePixelRatio),
-			Math.floor(dims.height * devicePixelRatio)
-		    );
-		    renderWindow.render();
-		}
-		window.addEventListener("resize", resize);
-		resize();
-
-		// Interactor
-		const interactor = vtk.Rendering.Core.vtkRenderWindowInteractor.newInstance();
-		interactor.setInteractorStyle(
-		    vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance()
-		);
-		interactor.setView(openGLRenderWindow);
-		interactor.initialize();
-		interactor.bindEvents(container);
-		
-		// Load the scene
-		renderWindow.synchronize(fileContents.state);
-	    }
-  
-	    zip.forEach(function (relativePath: string, zipEntry: any) {
-		
-		const fileName: any = relativePath.split('/').pop();
-
-		if (fileName === 'index.json') {
-		    workLoad++;
-		    zipEntry.async('string').then(function (txt: string) {
-			fileContents.state = JSON.parse(txt);
-			workLoad--;
-			done();
-		    });
-		}
-
-		if (typeof fileName === "string" && fileName.length === 32) {
-		    workLoad++;
-		    const hash = fileName;
-		    zipEntry.async('arraybuffer').then(function (arraybuffer: any) {
-			fileContents.arrays[hash] = arraybuffer;
-			workLoad--;
-			done();
-		    });
-		}
-	    });
+	this._synchContext = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.getSynchronizerContext(
+            CONTEXT_NAME
+	);
+	this._synchContext.setFetchArrayFunction(this.getArray);
+	
+	// openGLRenderWindow
+	this._openGLRenderWindow = vtk.Rendering.OpenGL.vtkRenderWindow.newInstance();
+	this._openGLRenderWindow.setContainer(container);
+	
+	// RenderWindow (synchronizable)
+	this._renderWindow = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.newInstance({
+            synchronizerContext: this._synchContext,
 	});
+	this._renderWindow.addView(this._openGLRenderWindow);
+	
+	// Size handling
+	this.resize();
+	
+	// Interactor
+	this._interactor = vtk.Rendering.Core.vtkRenderWindowInteractor.newInstance();
+	this._interactor.setInteractorStyle(
+            vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance()
+	);
+	this._interactor.setView(this._openGLRenderWindow);
+	this._interactor.initialize();
+	this._interactor.bindEvents(container);
+	
+	this._plot()
+	this._key_binding()
     }
-
-    _plot(): void{
-	if (!this.model.append) {
-	    this._delete_all_actors()
-	}
-	if (!this.model.data) {
-	    this._rendererEl.getRenderWindow().render()
-	    return
-	}
-	this._load_zip_content(atob(this.model.data), this._container);
+  }
+  
+  connect_signals(): void {
+      console.log('connect_signals');
+    super.connect_signals()
+    this.connect(this.model.properties.data.change, () => this._plot())
+    this.connect(this.model.properties.enable_keybindings.change, () => this._key_binding())
+  }
+  
+  _key_binding(): void {
+      console.log('_key_binding');
+    if (this.model.enable_keybindings) {
+      document.querySelector('body')!.addEventListener('keypress',this._interactor.handleKeyPress)
+      document.querySelector('body')!.addEventListener('keydown',this._interactor.handleKeyDown)
+      document.querySelector('body')!.addEventListener('keyup',this._interactor.handleKeyUp)
+    } else {
+      document.querySelector('body')!.removeEventListener('keypress',this._interactor.handleKeyPress)
+      document.querySelector('body')!.removeEventListener('keydown',this._interactor.handleKeyDown)
+      document.querySelector('body')!.removeEventListener('keyup',this._interactor.handleKeyUp)
     }
-
-    _delete_all_actors(): void{
-	this._renderer.getActors().map((actor: unknown) => this._renderer.removeActor(actor))
+  }
+  
+  render() {
+      console.log('render');
+    super.render()
+  }
+      
+  _load_zip_content(zipContent: any): void {
+      console.log('_load_zip_content');
+    const JSZip: any = this._jszip
+    const renderWindow = this._renderWindow;
+    const { getState, setState, registerArray } = this;
+    
+    const jszip = new JSZip();
+    jszip.loadAsync(zipContent).then(function(zip: any) {
+      let workLoad: number = 0;
+    
+      function done(): void {
+        if (workLoad !== 0) {
+            return;
+        }
+        renderWindow.synchronize(getState());
+      }
+    
+      zip.forEach(function (relativePath: string, zipEntry: any) {
+        const fileName: any = relativePath.split('/').pop();
+    
+        if (fileName === 'index.json') {
+          workLoad++;
+          zipEntry.async('string').then(function (txt: string) {
+            setState(JSON.parse(txt));
+            workLoad--;
+            done();
+          });
+        }
+    
+        if (typeof fileName === "string" && fileName.length === 32) {
+          workLoad++;
+          const hash = fileName;
+          zipEntry.async('arraybuffer').then(function (arraybuffer: any) {
+            registerArray(hash, arraybuffer);
+            workLoad--;
+            done();
+          });
+        }
+      });
+    });
+  }
+  
+  _plot(): void{
+      console.log('_plot');
+    if (!this.model.data) {
+      this._renderWindow.render()
+      return
     }
+      console.log('model.data', this.model.data);
+      this._load_zip_content(atob(this.model.data));
+  }
 }
 
 
