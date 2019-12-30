@@ -30,7 +30,9 @@ class VTKPlot(HTMLBox):
 
     append = Bool(default=False)
 
-    data = String(help="""The serialized vtk.js data""")
+    scene = String(help="""The serialized vtk.js scene""")
+
+    arrays = Dict(String, String)
 
     camera = Dict(String, Any)
 

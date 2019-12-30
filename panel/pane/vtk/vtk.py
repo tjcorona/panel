@@ -6,7 +6,6 @@ from __future__ import absolute_import, division, unicode_literals
 
 import sys
 import os
-import base64
 
 try:
     from urllib.request import urlopen
@@ -20,11 +19,6 @@ import param
 from pyviz_comms import JupyterComm
 
 from ..base import PaneBase
-
-if sys.version_info >= (2, 7):
-    base64encode = lambda x: base64.b64encode(x).decode('utf-8')
-else:
-    base64encode = lambda x: x.encode('base64')
 
 
 class VTK(PaneBase):
@@ -70,12 +64,12 @@ class VTK(PaneBase):
         else:
             VTKPlot = getattr(sys.modules['panel.models.vtk'], 'VTKPlot')
 
-        data = self._get_vtkjs()
+        arrays, scene = self._get_vtkjs()
         props = self._process_param_change(self._init_properties())
-        model = VTKPlot(data=data, **props)
+        model = VTKPlot(arrays=arrays, scene=scene, **props)
         if root is None:
             root = model
-        self._link_props(model, ['data', 'camera', 'enable_keybindings'], doc, root, comm)
+        self._link_props(model, ['arrays', 'scene', 'camera', 'enable_keybindings'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 
@@ -92,15 +86,6 @@ class VTK(PaneBase):
     def _get_vtkjs(self):
         if self.object is None:
             vtkjs = None
-        elif isinstance(self.object, string_types) and self.object.endswith('.vtkjs'):
-            if os.path.isfile(self.object):
-                with open(self.object, 'rb') as f:
-                    vtkjs = f.read()
-            else:
-                data_url = urlopen(self.object)
-                vtkjs = data_url.read()
-        elif hasattr(self.object, 'read'):
-            vtkjs = self.object.read()
         else:
             available_serializer = [v for k, v in VTK._serializers.items() if isinstance(self.object, k)]
             if len(available_serializer) == 0:
@@ -110,8 +95,8 @@ class VTK(PaneBase):
                 serializer = render_window_serializer
             else:
                 serializer = available_serializer[0]
-            vtkjs = serializer(self.object)
-        return base64encode(vtkjs) if vtkjs is not None else vtkjs
+            return serializer(self.object)
+        return (None, None)
 
     def _update(self, model):
         model.data = self._get_vtkjs()
