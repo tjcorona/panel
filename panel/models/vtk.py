@@ -32,7 +32,7 @@ class VTKPlot(HTMLBox):
 
     scene = String(help="""The serialized vtk.js scene""")
 
-    arrays = Dict(String, String)
+    arrays = Dict(String, Any)
 
     camera = Dict(String, Any)
 

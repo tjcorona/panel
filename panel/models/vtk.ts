@@ -16,6 +16,7 @@ export class VTKPlotView extends HTMLBoxView {
     protected _arrays: any
     public getArray: any
     public resize: any
+    public registerArray: any
     
     initialize(): void {
 	super.initialize();
@@ -23,7 +24,12 @@ export class VTKPlotView extends HTMLBoxView {
 	this._jszip = (window as any).JSZip;
 	this._arrays = {};
 	// Internal closures
-	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
+//	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
+	this.getArray = (hash: string) =>
+            {
+                console.log('getArray: ', hash)
+                return Promise.resolve(this._arrays[hash]);
+            }
 	this.resize = () => {
 	    if (this.el && this._openGLRenderWindow) {
 		const dims = this.el.getBoundingClientRect();
@@ -35,6 +41,12 @@ export class VTKPlotView extends HTMLBoxView {
 		this._renderWindow.render();
 	    }
 	};
+ 	this.registerArray = (hash: string, array: any) =>
+	    {
+		this._arrays[hash] = array;
+                console.log('registerArray: ', hash)
+                return true;
+	    };
 	window.addEventListener("resize", this.resize);
     }
     
@@ -48,6 +60,7 @@ export class VTKPlotView extends HTMLBoxView {
 	    this._synchContext = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.getSynchronizerContext(
 		CONTEXT_NAME
 	    );
+            console.log('setFetchArrayFunction')
 	    this._synchContext.setFetchArrayFunction(this.getArray);
 	    
 	    // openGLRenderWindow
@@ -78,21 +91,37 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
+        console.log('convert arrays')
 	this._arrays = {};
-	Object.keys(arrays).forEach((path: string) => {
-	    const fileName: any = path.split('/').pop();
-	    if (typeof fileName === "string") {
-		const hash: string = fileName;
-		this._arrays[hash] = this._vtk.Common.Core.vtkBase64.toArrayBuffer(arrays[hash]);
-	    }
-	});
+	const JSZip: any = this._jszip;
+	const jszip = new JSZip();
+        const renderWindow = this._renderWindow;
+        const scene = this.model.scene;
+	const { registerArray } = this;
+
+        function load(key: string) {
+            return jszip.loadAsync(atob(arrays[key]))
+                .then((zip: any) => zip.file('data/' + key))
+                .then((zipEntry: any) => zipEntry.async('arraybuffer'))
+                .then((arraybuffer: any) => registerArray(key, arraybuffer));
+        }
+
+        let promises: any = [];
+        Object.keys(arrays).forEach((key: string) => {
+            promises.push(load(key));
+        })
+        console.log('promises:', promises)
+
+        Promise.all(promises).then(() => {
+            renderWindow.synchronize(JSON.parse(scene));
+            console.log('Done');
+        });
     }
     
     _plot(): void{
 	if (this.model.arrays) {
 	    this._convert_arrays(this.model.arrays);
 	}
-	this._renderWindow.synchronize(JSON.parse(this.model.scene));
     }
 
     _key_binding(): void {

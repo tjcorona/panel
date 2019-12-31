@@ -64,12 +64,12 @@ class VTK(PaneBase):
         else:
             VTKPlot = getattr(sys.modules['panel.models.vtk'], 'VTKPlot')
 
-        arrays, scene = self._get_vtkjs()
+        scene, arrays = self._get_vtkjs()
         props = self._process_param_change(self._init_properties())
         model = VTKPlot(arrays=arrays, scene=scene, **props)
         if root is None:
             root = model
-        self._link_props(model, ['arrays', 'scene', 'camera', 'enable_keybindings'], doc, root, comm)
+        self._link_props(model, [ 'scene', 'arrays', 'camera', 'enable_keybindings'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 

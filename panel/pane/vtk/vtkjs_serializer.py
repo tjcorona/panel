@@ -23,28 +23,30 @@ def render_window_serializer(render_window):
     render_window.OffScreenRenderingOn()
     render_window.Render()
 
-    buffered_exporter = vtk.vtkVtkJSSceneExporter()
-    buffered_archiver = vtk.vtkVtkJSBufferedArchiver()
-    buffered_exporter.SetArchiver(buffered_archiver)
-    buffered_exporter.SetRenderWindow(render_window)
-    buffered_exporter.Write()
-
-    ptr = buffered_archiver.GetBufferAddress()
-    address = int(ptr[1:-7], 16)
-    ArrayType = ctypes.c_byte*buffered_archiver.GetBufferSize()
-    b = ArrayType.from_address(address)
-
-    stream = io.BytesIO(b)
+    partitioned_exporter = vtk.vtkVtkJSSceneExporter()
+    partitioned_archiver = vtk.vtkVtkJSPartitionedArchiver()
+    partitioned_exporter.SetArchiver(partitioned_archiver)
+    partitioned_exporter.SetRenderWindow(render_window)
+    partitioned_exporter.Write()
 
     arrays = {}
     scene = None
+    
+    for i in range(partitioned_archiver.GetNumberOfBuffers()):
+        buffer_name = partitioned_archiver.GetBufferName(i)
+        ptr = partitioned_archiver.GetBufferAddress(buffer_name)
+        address = int(ptr[1:-7], 16)
+        ArrayType = ctypes.c_byte*partitioned_archiver.GetBufferSize(buffer_name)
+        b = ArrayType.from_address(address)
+    
+        stream = io.BytesIO(b)
+    
+        filename = os.path.split(buffer_name)[-1]
+        if len(filename) != 32:
+            with zipfile.ZipFile(stream) as zf:
+                encoded_scene = zf.read(zf.infolist()[0])
+                scene = encoded_scene.decode("utf-8")
+        else:
+            arrays[filename] = base64encode(stream.read())
 
-    with zipfile.ZipFile(stream) as zf:
-        for info in zf.infolist(): 
-            filename = os.path.split(info.filename)[-1]
-            if len(filename) != 32:
-                scene = zf.read(info.filename).decode("utf-8")
-            else:
-                arrays[filename] = base64encode(zf.read(info.filename))
-
-    return (arrays, scene)
+    return (scene, arrays)
