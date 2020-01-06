@@ -24,12 +24,7 @@ export class VTKPlotView extends HTMLBoxView {
 	this._jszip = (window as any).JSZip;
 	this._arrays = {};
 	// Internal closures
-//	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
-	this.getArray = (hash: string) =>
-            {
-                console.log('getArray: ', hash)
-                return Promise.resolve(this._arrays[hash]);
-            }
+	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
 	this.resize = () => {
 	    if (this.el && this._openGLRenderWindow) {
 		const dims = this.el.getBoundingClientRect();
@@ -44,7 +39,6 @@ export class VTKPlotView extends HTMLBoxView {
  	this.registerArray = (hash: string, array: any) =>
 	    {
 		this._arrays[hash] = array;
-                console.log('registerArray: ', hash)
                 return true;
 	    };
 	window.addEventListener("resize", this.resize);
@@ -60,7 +54,6 @@ export class VTKPlotView extends HTMLBoxView {
 	    this._synchContext = vtk.Rendering.Misc.vtkSynchronizableRenderWindow.getSynchronizerContext(
 		CONTEXT_NAME
 	    );
-            console.log('setFetchArrayFunction')
 	    this._synchContext.setFetchArrayFunction(this.getArray);
 	    
 	    // openGLRenderWindow
@@ -91,12 +84,13 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
-        console.log('convert arrays')
 	this._arrays = {};
 	const JSZip: any = this._jszip;
 	const jszip = new JSZip();
         const renderWindow = this._renderWindow;
+        const interactor = this._interactor;
         const scene = this.model.scene;
+        const vtk: any = this._vtk;
 	const { registerArray } = this;
 
         function load(key: string) {
@@ -110,11 +104,96 @@ export class VTKPlotView extends HTMLBoxView {
         Object.keys(arrays).forEach((key: string) => {
             promises.push(load(key));
         })
-        console.log('promises:', promises)
 
         Promise.all(promises).then(() => {
             renderWindow.synchronize(JSON.parse(scene));
-            console.log('Done');
+            	    
+        renderWindow.render();
+
+            const renderer: any = renderWindow.getRenderers()[0];
+
+            const useHardwareSelector: any = false;
+
+        if (useHardwareSelector) {
+        // Add a hardware selector for point picking
+            const sel: any = vtk.Rendering.OpenGL.vtkHardwareSelector.newInstance();
+        sel.setFieldAssociation(vtk.Common.DataModel.DataSet.Constants.FieldAssociations.FIELD_ASSOCIATION_POINTS);
+        sel.attach(this._openGLRenderWindow, renderer);
+
+        // Pick on mouse right click
+            interactor.onRightButtonPress((callData: any) => {
+          if (renderer !== callData.pokedRenderer) {
+            return;
+          }
+
+            const pos: any = callData.position;
+            const point: any = [pos.x, pos.y, 0.0];
+          console.log(`Select at: ${point}`);
+
+          sel.setArea(pos.x, pos.y, pos.x, pos.y);
+          const selection = sel.select(pos.x, pos.y, pos.x, pos.y);
+          if (selection.length !== 0) {
+            console.log('converted to', selection[0].getSelectionList()[0]);
+          }
+
+          renderWindow.render();
+        });
+      } else {
+        // ----------------------------------------------------------------------------
+        // Setup picking interaction
+        // ----------------------------------------------------------------------------
+        // Only try to pick cone points
+          const picker: any = vtk.Rendering.Core.vtkPointPicker.newInstance();
+
+        // Pick on mouse right click
+          console.log('Setting right button event')
+          console.log(renderWindow)
+          interactor.onRightButtonPress((callData: any) => {
+          if (renderer !== callData.pokedRenderer) {
+            return;
+          }
+
+            const pos: any = callData.position;
+            const point: any = [pos.x, pos.y, 0.0];
+          console.log(`Pick at: ${point}`);
+          picker.pick(point, renderer);
+
+          if (picker.getActors().length === 0) {
+              const pickedPoint: any = picker.getPickPosition();
+            console.log(`No point picked, default: ${pickedPoint}`);
+              const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
+            sphere.setCenter(pickedPoint);
+            sphere.setRadius(0.01);
+              const sphereMapper: any = vtk.Rendering.Core.vtkMapper.newInstance();
+            sphereMapper.setInputData(sphere.getOutputData());
+              const sphereActor: any = vtk.Rendering.Core.vtkActor.newInstance();
+            sphereActor.setMapper(sphereMapper);
+            sphereActor.getProperty().setColor(1.0, 0.0, 0.0);
+            renderer.addActor(sphereActor);
+          } else {
+              const pickedPointId: any = picker.getPointId();
+            console.log('Picked point: ', pickedPointId);
+
+              const pickedPoints: any = picker.getPickedPositions();
+            for (let i = 0; i < pickedPoints.length; i++) {
+                const pickedPoint: any = pickedPoints[i];
+              console.log(`Picked: ${pickedPoint}`);
+                console.log(vtk)
+                const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
+              sphere.setCenter(pickedPoint);
+              sphere.setRadius(0.01);
+                const sphereMapper: any = vtk.Rendering.Core.vtkMapper.newInstance();
+              sphereMapper.setInputData(sphere.getOutputData());
+                const sphereActor: any = vtk.Rendering.Core.vtkActor.newInstance();
+              sphereActor.setMapper(sphereMapper);
+              sphereActor.getProperty().setColor(0.0, 1.0, 0.0);
+              renderer.addActor(sphereActor);
+            }
+          }
+          renderWindow.render();
+        });
+      }
+
         });
     }
     
