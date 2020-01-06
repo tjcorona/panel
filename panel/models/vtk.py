@@ -2,10 +2,14 @@
 """
 Defines custom VTKPlot bokeh model to render VTK objects.
 """
-from bokeh.core.properties import String, Bool, Dict, Any, Override
-from bokeh.models import HTMLBox
+import os
 
-vtk_cdn = "https://unpkg.com/vtk.js"
+from bokeh.core.properties import String, Bool, Dict, Any, Override
+from bokeh.models import HTMLBox, Model
+
+#vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
+vtk_cdn = "http://localhost:8080/vtk.js"
+jszip_cdn = "https://unpkg.com/jszip@3.1.5/dist/jszip.js"
 
 class VTKPlot(HTMLBox):
     """
@@ -13,42 +17,26 @@ class VTKPlot(HTMLBox):
     a Bokeh plot.
     """
 
-    __javascript__ = [vtk_cdn]
+    __javascript__ = [vtk_cdn, jszip_cdn]
 
-    __js_require__ = {"paths": {"vtk": vtk_cdn[:-3]},
+    __js_require__ = {"paths": {"vtk": vtk_cdn[:-3],
+                                "jszip": jszip_cdn[:-3]},
+                      "exports": {"jszip": "jszip"},
                       "shim": {"vtk": {"exports": "vtk"}}}
+
+    __implementation__ = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'vtk.ts')
 
     append = Bool(default=False)
 
-    data = String(help="""The serialized vtk.js data""")
+    scene = String(help="""The serialized vtk.js scene""")
+
+    arrays = Dict(String, Any)
 
     camera = Dict(String, Any)
 
     enable_keybindings = Bool(default=False)
 
-    orientation_widget = Bool(default=False)
-
-    renderer_el = Any(readonly=True)
-
     height = Override(default=300)
 
     width = Override(default=300)
 
-class VTKVolumePlot(HTMLBox):
-    """
-    A Bokeh model that wraps around a vtk-js library and renders it inside
-    a Bokeh plot.
-    """
-
-    __javascript__ = [vtk_cdn]
-
-    __js_require__ = {"paths": {"vtk": vtk_cdn[:-3]},
-                      "shim": {"vtk": {"exports": "vtk"}}}
-
-    actor = Any(readonly=True)
-
-    data = Dict(String, Any)
-
-    height = Override(default=300)
-
-    width = Override(default=300)
