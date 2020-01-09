@@ -28,6 +28,13 @@ class VTK(PaneBase):
 
     camera = param.Dict(doc="""State of the rendered VTK camera.""")
 
+    selection = param.Dict(default = {'x': 0., 'y': 0., 'z': 0.}, doc="""vtk Selection.""")
+
+    @param.depends('selection', watch=True)
+    def _update_selection(self):
+        print('python call for selection %f %f %f' %
+              (self.selection['x'], self.selection['y'], self.selection['z']))
+
     enable_keybindings = param.Boolean(default=False, doc="""
         Activate/Deactivate keys binding.
 
@@ -69,7 +76,7 @@ class VTK(PaneBase):
         model = VTKPlot(arrays=arrays, scene=scene, **props)
         if root is None:
             root = model
-        self._link_props(model, [ 'scene', 'arrays', 'camera', 'enable_keybindings'], doc, root, comm)
+        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 

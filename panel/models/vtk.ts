@@ -155,12 +155,16 @@ export class VTKPlotView extends HTMLBoxView {
 
             const pos: any = callData.position;
             const point: any = [pos.x, pos.y, 0.0];
-          console.log(`Pick at: ${point}`);
-          picker.pick(point, renderer);
+            console.log(`Pick at: ${point}`);
+            picker.pick(point, renderer);
 
+              let ppoint: any = {};
           if (picker.getActors().length === 0) {
               const pickedPoint: any = picker.getPickPosition();
             console.log(`No point picked, default: ${pickedPoint}`);
+              ppoint['x'] = pickedPoint[0];
+              ppoint['y'] = pickedPoint[1];
+              ppoint['z'] = pickedPoint[2];
               const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
             sphere.setCenter(pickedPoint);
             sphere.setRadius(0.01);
@@ -178,6 +182,9 @@ export class VTKPlotView extends HTMLBoxView {
             for (let i = 0; i < pickedPoints.length; i++) {
                 const pickedPoint: any = pickedPoints[i];
               console.log(`Picked: ${pickedPoint}`);
+              ppoint['x'] = pickedPoint[0];
+              ppoint['y'] = pickedPoint[1];
+              ppoint['z'] = pickedPoint[2];
                 console.log(vtk)
                 const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
               sphere.setCenter(pickedPoint);
@@ -190,6 +197,7 @@ export class VTKPlotView extends HTMLBoxView {
               renderer.addActor(sphereActor);
             }
           }
+          this.model.selection = ppoint;
           renderWindow.render();
         });
       }
@@ -234,6 +242,7 @@ export namespace VTKPlot {
     arrays: p.Property<any>
     append: p.Property<boolean>
     camera: p.Property<any>
+    selection: p.Property<any>
     enable_keybindings: p.Property<boolean>
   }
 }
@@ -256,6 +265,7 @@ export class VTKPlot extends HTMLBox {
       arrays:             [ p.Any, {}        ],
       append:             [ p.Boolean, false ],
       camera:             [ p.Any            ],
+      selection:          [ p.Any            ],
       enable_keybindings: [ p.Boolean, false ]
     })
 
