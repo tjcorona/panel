@@ -39,6 +39,8 @@ export class VTKPlotView extends HTMLBoxView {
  	this.registerArray = (hash: string, array: any) =>
 	    {
 		this._arrays[hash] = array;
+                console.log('array', hash)
+                console.log(this._arrays[hash])
                 return true;
 	    };
 	window.addEventListener("resize", this.resize);
@@ -84,16 +86,19 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
+        console.log(this.model)
 	this._arrays = {};
 	const JSZip: any = this._jszip;
 	const jszip = new JSZip();
         const renderWindow = this._renderWindow;
         const interactor = this._interactor;
         const scene = this.model.scene;
+        const comm_js_py = this.model.comm_js_py;
         const vtk: any = this._vtk;
 	const { registerArray } = this;
 
         function load(key: string) {
+            console.log('loading', key)
             return jszip.loadAsync(atob(arrays[key]))
                 .then((zip: any) => zip.file('data/' + key))
                 .then((zipEntry: any) => zipEntry.async('arraybuffer'))
@@ -107,6 +112,7 @@ export class VTKPlotView extends HTMLBoxView {
 
         Promise.all(promises).then(() => {
             renderWindow.synchronize(JSON.parse(scene));
+            console.log(JSON.parse(scene));
             	    
         renderWindow.render();
 
@@ -162,9 +168,10 @@ export class VTKPlotView extends HTMLBoxView {
           if (picker.getActors().length === 0) {
               const pickedPoint: any = picker.getPickPosition();
             console.log(`No point picked, default: ${pickedPoint}`);
-              ppoint['x'] = pickedPoint[0];
-              ppoint['y'] = pickedPoint[1];
-              ppoint['z'] = pickedPoint[2];
+//              ppoint['x'] = pickedPoint[0];
+//              ppoint['y'] = pickedPoint[1];
+//              ppoint['z'] = pickedPoint[2];
+              ppoint['xyz'] = [ pickedPoint[0], pickedPoint[1], pickedPoint[2]];
               const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
             sphere.setCenter(pickedPoint);
             sphere.setRadius(0.01);
@@ -182,9 +189,10 @@ export class VTKPlotView extends HTMLBoxView {
             for (let i = 0; i < pickedPoints.length; i++) {
                 const pickedPoint: any = pickedPoints[i];
               console.log(`Picked: ${pickedPoint}`);
-              ppoint['x'] = pickedPoint[0];
-              ppoint['y'] = pickedPoint[1];
-              ppoint['z'] = pickedPoint[2];
+//              ppoint['x'] = pickedPoint[0];
+//              ppoint['y'] = pickedPoint[1];
+//              ppoint['z'] = pickedPoint[2];
+              ppoint['xyz'] = [ pickedPoint[0], pickedPoint[1], pickedPoint[2]];
                 console.log(vtk)
                 const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
               sphere.setCenter(pickedPoint);
@@ -197,7 +205,13 @@ export class VTKPlotView extends HTMLBoxView {
               renderer.addActor(sphereActor);
             }
           }
+              console.log(this.model.selection)
           this.model.selection = ppoint;
+//              this.model.selection.setv({value: JSON.stringify(ppoint), {silent: true}});
+//              this.model.selection.properties.value.change.emit();
+              console.log(comm_js_py)
+//          comm_js_py.setv({text: JSON.stringify(ppoint)}, {silent: true});
+//          comm_js_py.properties.text.change.emit();
           renderWindow.render();
         });
       }
@@ -244,6 +258,7 @@ export namespace VTKPlot {
     camera: p.Property<any>
     selection: p.Property<any>
     enable_keybindings: p.Property<boolean>
+    comm_js_py: p.Property<any>
   }
 }
 
@@ -266,7 +281,8 @@ export class VTKPlot extends HTMLBox {
       append:             [ p.Boolean, false ],
       camera:             [ p.Any            ],
       selection:          [ p.Any            ],
-      enable_keybindings: [ p.Boolean, false ]
+      enable_keybindings: [ p.Boolean, false ],
+      comm_js_py:         [ p.Any         ]
     })
 
     this.override({

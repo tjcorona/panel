@@ -14,12 +14,14 @@ except ImportError: # python 2
 
 from six import string_types
 
+from bokeh.models import ColumnDataSource
+
 import param
 
 from pyviz_comms import JupyterComm
 
 from ..base import PaneBase
-
+from ...widgets import StaticText
 
 class VTK(PaneBase):
     """
@@ -28,7 +30,8 @@ class VTK(PaneBase):
 
     camera = param.Dict(doc="""State of the rendered VTK camera.""")
 
-    selection = param.Dict(default = {'x': 0., 'y': 0., 'z': 0.}, doc="""vtk Selection.""")
+#    selection = param.Dict(default = {'x': 0., 'y': 0., 'z': 0.}, doc="""vtk Selection.""")
+    selection = ColumnDataSource({'xyz': [0., 0., 0.]})
 
     @param.depends('selection', watch=True)
     def _update_selection(self):
@@ -41,6 +44,25 @@ class VTK(PaneBase):
         Warning: These keys bind may not work as expected in a notebook
         context if they interact with already binded keys
     """)
+
+    # comm to return information from javascript to python
+    comm_js_py = StaticText(style={'visibility': 'hidden', 'width': 0, 'height': 0, 'overflow': 'hidden'}, margin=0)
+
+    def update_output(*events):
+        print('update_output' + events[0].new + '\n')
+    comm_js_py.param.watch(update_output, ['value'], onlychanged=False)
+#    print(comm_js_py)
+#    print(type(comm_js_py))
+#    print(dir(comm_js_py))
+#
+#    print(comm_js_py.param)
+#    print(type(comm_js_py.param))
+#    print(dir(comm_js_py.param))
+#
+#    print(selection)
+#    print(type(selection))
+#    print(dir(selection))
+#    selection.param.watch(update_output, ['value'], onlychanged=False)
 
     _updates = True
     _serializers = {}
@@ -76,7 +98,7 @@ class VTK(PaneBase):
         model = VTKPlot(arrays=arrays, scene=scene, **props)
         if root is None:
             root = model
-        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings'], doc, root, comm)
+        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings', 'comm_js_py'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 

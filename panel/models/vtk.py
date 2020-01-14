@@ -4,8 +4,10 @@ Defines custom VTKPlot bokeh model to render VTK objects.
 """
 import os
 
-from bokeh.core.properties import String, Bool, Dict, Any, Override
-from bokeh.models import HTMLBox, Model
+from bokeh.core.properties import String, Bool, Dict, Any, Instance, Override
+from bokeh.models import ColumnDataSource, HTMLBox, Model
+
+from ..widgets import StaticText
 
 #vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
 vtk_cdn = "http://localhost:8080/vtk.js"
@@ -34,9 +36,13 @@ class VTKPlot(HTMLBox):
 
     camera = Dict(String, Any)
 
-    selection = Dict(String, Any)
+#    selection = Dict(String, Any)
+    selection = Instance(ColumnDataSource)
 
     enable_keybindings = Bool(default=False)
+
+#    comm_js_py = Any(help="""Communication between javascript and python""")
+    comm_js_py = Dict(String, Any)
 
     height = Override(default=300)
 

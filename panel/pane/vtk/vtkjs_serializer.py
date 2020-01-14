@@ -23,8 +23,8 @@ def render_window_serializer(render_window):
     render_window.OffScreenRenderingOn()
     render_window.Render()
 
-    partitioned_exporter = vtk.vtkVtkJSSceneExporter()
-    partitioned_archiver = vtk.vtkVtkJSPartitionedArchiver()
+    partitioned_exporter = vtk.vtkJSONRenderWindowExporter()
+    partitioned_archiver = vtk.vtkPartitionedArchiver()
     partitioned_exporter.SetArchiver(partitioned_archiver)
     partitioned_exporter.SetRenderWindow(render_window)
     partitioned_exporter.Write()
