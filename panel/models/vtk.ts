@@ -39,8 +39,6 @@ export class VTKPlotView extends HTMLBoxView {
  	this.registerArray = (hash: string, array: any) =>
 	    {
 		this._arrays[hash] = array;
-                console.log('array', hash)
-                console.log(this._arrays[hash])
                 return true;
 	    };
 	window.addEventListener("resize", this.resize);
@@ -86,19 +84,18 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
-        console.log(this.model)
 	this._arrays = {};
 	const JSZip: any = this._jszip;
 	const jszip = new JSZip();
         const renderWindow = this._renderWindow;
         const interactor = this._interactor;
         const scene = this.model.scene;
+        const selection = this.model.selection;
         const comm_js_py = this.model.comm_js_py;
         const vtk: any = this._vtk;
 	const { registerArray } = this;
 
         function load(key: string) {
-            console.log('loading', key)
             return jszip.loadAsync(atob(arrays[key]))
                 .then((zip: any) => zip.file('data/' + key))
                 .then((zipEntry: any) => zipEntry.async('arraybuffer'))
@@ -112,9 +109,8 @@ export class VTKPlotView extends HTMLBoxView {
 
         Promise.all(promises).then(() => {
             renderWindow.synchronize(JSON.parse(scene));
-            console.log(JSON.parse(scene));
-            	    
-        renderWindow.render();
+
+            renderWindow.render();
 
             const renderer: any = renderWindow.getRenderers()[0];
 
@@ -137,9 +133,9 @@ export class VTKPlotView extends HTMLBoxView {
           console.log(`Select at: ${point}`);
 
           sel.setArea(pos.x, pos.y, pos.x, pos.y);
-          const selection = sel.select(pos.x, pos.y, pos.x, pos.y);
-          if (selection.length !== 0) {
-            console.log('converted to', selection[0].getSelectionList()[0]);
+          const seln = sel.select(pos.x, pos.y, pos.x, pos.y);
+          if (seln.length !== 0) {
+            console.log('converted to', seln[0].getSelectionList()[0]);
           }
 
           renderWindow.render();
@@ -152,8 +148,6 @@ export class VTKPlotView extends HTMLBoxView {
           const picker: any = vtk.Rendering.Core.vtkPointPicker.newInstance();
 
         // Pick on mouse right click
-          console.log('Setting right button event')
-          console.log(renderWindow)
           interactor.onRightButtonPress((callData: any) => {
           if (renderer !== callData.pokedRenderer) {
             return;
@@ -205,11 +199,11 @@ export class VTKPlotView extends HTMLBoxView {
               renderer.addActor(sphereActor);
             }
           }
-              console.log(this.model.selection)
-          this.model.selection = ppoint;
-//              this.model.selection.setv({value: JSON.stringify(ppoint), {silent: true}});
-//              this.model.selection.properties.value.change.emit();
-              console.log(comm_js_py)
+              console.log(selection)
+              selection.setv({data: JSON.stringify(ppoint)});
+              selection.properties.data.change.emit();
+              console.log('selection:', selection)
+              console.log('comm:', comm_js_py)
 //          comm_js_py.setv({text: JSON.stringify(ppoint)}, {silent: true});
 //          comm_js_py.properties.text.change.emit();
           renderWindow.render();

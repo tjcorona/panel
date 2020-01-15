@@ -95,7 +95,7 @@ class VTK(PaneBase):
 
         scene, arrays = self._get_vtkjs()
         props = self._process_param_change(self._init_properties())
-        model = VTKPlot(arrays=arrays, scene=scene, **props)
+        model = VTKPlot(arrays=arrays, scene=scene, selection=self.selection, **props)
         if root is None:
             root = model
         self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings', 'comm_js_py'], doc, root, comm)
