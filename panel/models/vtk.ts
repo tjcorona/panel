@@ -91,7 +91,6 @@ export class VTKPlotView extends HTMLBoxView {
         const interactor = this._interactor;
         const scene = this.model.scene;
         const selection = this.model.selection;
-        const comm_js_py = this.model.comm_js_py;
         const vtk: any = this._vtk;
 	const { registerArray } = this;
 
@@ -199,13 +198,29 @@ export class VTKPlotView extends HTMLBoxView {
               renderer.addActor(sphereActor);
             }
           }
-              console.log(selection)
-              selection.setv({data: JSON.stringify(ppoint)});
-              selection.properties.data.change.emit();
+//              console.log(selection)
+              console.log('typeof selection:', typeof selection)
               console.log('selection:', selection)
-              console.log('comm:', comm_js_py)
-//          comm_js_py.setv({text: JSON.stringify(ppoint)}, {silent: true});
-//          comm_js_py.properties.text.change.emit();
+
+//    for (const column of cds.columns()) {
+//      const shape: number[] = cds._shapes[column][0];
+//      let array = cds.get_array(column)[0];
+//      if (shape.length > 1) {
+//        const arrays = [];
+//        for (let s = 0; s < shape[0]; s++) {
+//          arrays.push(array.slice(s*shape[1], (s+1)*shape[1]));
+//        }
+//        array = arrays;
+//      }
+
+              console.log('data before:', selection.attributes.data)
+              selection.attributes.data.xyz[0] = ppoint['xyz'][0];
+              selection.attributes.data.xyz[1] = ppoint['xyz'][1];
+              selection.attributes.data.xyz[2] = ppoint['xyz'][2];
+              console.log('data after:', selection.attributes.data)
+//              selection.attributes.data.xyz = [ppoint['xyz']];
+//              console.log('selection attributes data xyz:', selection.attributes.data.xyz)
+              selection.change.emit();
           renderWindow.render();
         });
       }
@@ -252,7 +267,6 @@ export namespace VTKPlot {
     camera: p.Property<any>
     selection: p.Property<any>
     enable_keybindings: p.Property<boolean>
-    comm_js_py: p.Property<any>
   }
 }
 
@@ -276,7 +290,6 @@ export class VTKPlot extends HTMLBox {
       camera:             [ p.Any            ],
       selection:          [ p.Any            ],
       enable_keybindings: [ p.Boolean, false ],
-      comm_js_py:         [ p.Any         ]
     })
 
     this.override({

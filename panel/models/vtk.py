@@ -42,9 +42,6 @@ class VTKPlot(HTMLBox):
 
     enable_keybindings = Bool(default=False)
 
-#    comm_js_py = Any(help="""Communication between javascript and python""")
-    comm_js_py = Dict(String, Any)
-
     height = Override(default=300)
 
     width = Override(default=300)

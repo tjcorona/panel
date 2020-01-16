@@ -22,6 +22,7 @@ from pyviz_comms import JupyterComm
 
 from ..base import PaneBase
 from ...widgets import StaticText
+from ...widgets import ColorPicker
 
 class VTK(PaneBase):
     """
@@ -45,27 +46,18 @@ class VTK(PaneBase):
         context if they interact with already binded keys
     """)
 
+
     # comm to return information from javascript to python
     comm_js_py = StaticText(style={'visibility': 'hidden', 'width': 0, 'height': 0, 'overflow': 'hidden'}, margin=0)
 
     def update_output(*events):
-        print('update_output' + events[0].new + '\n')
+        print('update_output' + str(events[0].new) + '\n')
     comm_js_py.param.watch(update_output, ['value'], onlychanged=False)
-#    print(comm_js_py)
-#    print(type(comm_js_py))
-#    print(dir(comm_js_py))
-#
-#    print(comm_js_py.param)
-#    print(type(comm_js_py.param))
-#    print(dir(comm_js_py.param))
-#
-#    print(selection)
-#    print(type(selection))
-#    print(dir(selection))
-#    selection.param.watch(update_output, ['value'], onlychanged=False)
 
     _updates = True
     _serializers = {}
+
+    colorPicker = ColorPicker(name='Color Picker', value='#99ef78')
 
     @classmethod
     def applies(cls, obj):
@@ -96,9 +88,25 @@ class VTK(PaneBase):
         scene, arrays = self._get_vtkjs()
         props = self._process_param_change(self._init_properties())
         model = VTKPlot(arrays=arrays, scene=scene, selection=self.selection, **props)
+
+        self.comm_js_py.jscallback(args={'vtkpan':self, "comm_js_py":self.comm_js_py}, value="""
+        vtkpan.el.addEventListener("click", (evt) => {
+        const mouse_pos = {
+        screenX: evt.screenX,
+        screenY: evt.screenY,
+        clientX: evt.clientX,
+        clientY: evt.clientY,
+        }
+        console.log('setting mouse position to', mouse_pos)
+        comm_js_py.setv({text: JSON.stringify(mouse_pos)}, {silent: true})
+        comm_js_py.properties.text.change.emit()
+        })
+
+        """)
+
         if root is None:
             root = model
-        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings', 'comm_js_py'], doc, root, comm)
+        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 
