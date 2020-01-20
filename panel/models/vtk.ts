@@ -45,7 +45,6 @@ export class VTKPlotView extends HTMLBoxView {
     }
     
     after_layout(): void {
-	super.after_layout()
 	if (!this._synchContext) {
 	    const container = this.el;
 	    
@@ -80,7 +79,17 @@ export class VTKPlotView extends HTMLBoxView {
 	    
 	    this._plot();
 	    this._key_binding();
+
+            // Can return undefined before synchronization
+            const getRenderer = () => this._renderWindow.getRenderers()[0];
+            const getRenderWindow = () => this._renderWindow;
+            
+            this.model.renderer_el = {
+                getRenderer,
+                getRenderWindow,
+            };
 	}
+	super.after_layout();
     }
 
     _convert_arrays(arrays: any): void {
@@ -274,9 +283,16 @@ export interface VTKPlot extends VTKPlot.Attrs {}
 
 export class VTKPlot extends HTMLBox {
   properties: VTKPlot.Props
+    renderer_el: any
 
   constructor(attrs?: Partial<VTKPlot.Attrs>) {
     super(attrs)
+      this.renderer_el = null
+  }
+
+  getActors() : [any] {
+      console.log('get actors:', this.renderer_el.getRenderer().getActors())
+    return this.renderer_el.getRenderer().getActors()
   }
 
   static initClass(): void {

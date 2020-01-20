@@ -9,8 +9,8 @@ from bokeh.models import ColumnDataSource, HTMLBox, Model
 
 from ..widgets import StaticText
 
-#vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
-vtk_cdn = "http://localhost:8080/vtk.js"
+vtk_cdn = "https://unpkg.com/vtk.js@8.3.15/dist/vtk.js"
+#vtk_cdn = "http://localhost:8080/vtk.js"
 #jszip_cdn = "https://unpkg.com/jszip@3.1.5/dist/jszip.js"
 jszip_cdn = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.js"
 
