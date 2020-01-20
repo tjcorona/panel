@@ -1,3 +1,4 @@
+/*
 import * as p from "core/properties"
 import {HTMLBox, HTMLBoxView} from "models/layouts/html_box";
 
@@ -315,3 +316,4 @@ export class VTKPlot extends HTMLBox {
   }
 }
 VTKPlot.initClass()
+*/
