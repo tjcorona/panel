@@ -3,7 +3,6 @@ import {HTMLBox, HTMLBoxView} from "models/layouts/html_box";
 
 const CONTEXT_NAME = '__zipFileContent__';
 
-/*
 export class VTKPlotView extends HTMLBoxView {
     model: VTKPlot
     protected _vtk: any
@@ -316,4 +315,3 @@ export class VTKPlot extends HTMLBox {
   }
 }
 VTKPlot.initClass()
-*/
