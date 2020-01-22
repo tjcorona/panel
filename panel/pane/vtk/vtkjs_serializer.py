@@ -20,6 +20,7 @@ def render_window_serializer(render_window):
     """
     Function to convert a vtk render window in a vtk-js scene.
     """
+    print('SERIALIZING!!')
     render_window.OffScreenRenderingOn()
     render_window.Render()
 
