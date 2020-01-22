@@ -22,7 +22,6 @@ from pyviz_comms import JupyterComm
 
 from ..base import PaneBase
 from ...widgets import StaticText
-from ...widgets import ColorPicker
 
 class VTK(PaneBase):
     """
@@ -34,10 +33,10 @@ class VTK(PaneBase):
 #    selection = param.Dict(default = {'x': 0., 'y': 0., 'z': 0.}, doc="""vtk Selection.""")
     selection = ColumnDataSource({'xyz': [0., 0., 0.]})
 
-    @param.depends('selection', watch=True)
-    def _update_selection(self):
-        print('python call for selection %f %f %f' %
-              (self.selection['x'], self.selection['y'], self.selection['z']))
+#    @param.depends('selection', watch=True)
+#    def _update_selection(self):
+#        print('python call for selection', self.selection)
+#        print('xyz? %d %d %d' % (self.selection.data.get('xyz')[0], self.selection.data.get('xyz')[1], self.selection.data.get('xyz')[2]))
 
     enable_keybindings = param.Boolean(default=False, doc="""
         Activate/Deactivate keys binding.
@@ -47,17 +46,13 @@ class VTK(PaneBase):
     """)
 
 
-    # comm to return information from javascript to python
-    comm_js_py = StaticText(style={'visibility': 'hidden', 'width': 0, 'height': 0, 'overflow': 'hidden'}, margin=0)
-
-    def update_output(*events):
-        print('update_output' + str(events[0].new) + '\n')
-    comm_js_py.param.watch(update_output, ['value'], onlychanged=False)
-
     _updates = True
     _serializers = {}
 
-    colorPicker = ColorPicker(name='Color Picker', value='#99ef78')
+    scene = param.String(doc="""Description of the VTK scene""")
+    arrays = param.Dict(doc="""Dict of gzipped VTK data arrays""")
+
+    _rerender_params = ['object', 'scene', 'arrays']
 
     @classmethod
     def applies(cls, obj):
@@ -85,24 +80,9 @@ class VTK(PaneBase):
         else:
             VTKPlot = getattr(sys.modules['panel.models.vtk'], 'VTKPlot')
 
-        scene, arrays = self._get_vtkjs()
+        self.scene, self.arrays = self._get_vtkjs()
         props = self._process_param_change(self._init_properties())
-        model = VTKPlot(arrays=arrays, scene=scene, selection=self.selection, **props)
-
-        self.comm_js_py.jscallback(args={'vtkpan':self, "comm_js_py":self.comm_js_py}, value="""
-        vtkpan.el.addEventListener("click", (evt) => {
-        const mouse_pos = {
-        screenX: evt.screenX,
-        screenY: evt.screenY,
-        clientX: evt.clientX,
-        clientY: evt.clientY,
-        }
-        console.log('setting mouse position to', mouse_pos)
-        comm_js_py.setv({text: JSON.stringify(mouse_pos)}, {silent: true})
-        comm_js_py.properties.text.change.emit()
-        })
-
-        """)
+        model = VTKPlot(selection=self.selection, **props)
 
         if root is None:
             root = model
@@ -137,4 +117,5 @@ class VTK(PaneBase):
 
     def _update(self, model):
         model.scene, model.arrays = self._get_vtkjs()
+        print('new arrays:', model.arrays.keys())
 

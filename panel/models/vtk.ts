@@ -99,6 +99,8 @@ export class VTKPlotView extends HTMLBoxView {
         const renderWindow = this._renderWindow;
         const interactor = this._interactor;
         const scene = this.model.scene;
+        console.log('in convert arrays')
+        console.log(scene)
         const selection = this.model.selection;
         const vtk: any = this._vtk;
 	const { registerArray } = this;
@@ -291,7 +293,6 @@ export class VTKPlot extends HTMLBox {
   }
 
   getActors() : [any] {
-      console.log('get actors:', this.renderer_el.getRenderer().getActors())
     return this.renderer_el.getRenderer().getActors()
   }
 
