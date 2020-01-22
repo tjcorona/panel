@@ -136,5 +136,5 @@ class VTK(PaneBase):
         return (None, None)
 
     def _update(self, model):
-        model.data = self._get_vtkjs()
+        model.scene, model.arrays = self._get_vtkjs()
 
