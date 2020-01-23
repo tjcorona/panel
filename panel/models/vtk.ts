@@ -93,14 +93,14 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
-	this._arrays = {};
+//	this._arrays = {};
 	const JSZip: any = this._jszip;
 	const jszip = new JSZip();
         const renderWindow = this._renderWindow;
         const interactor = this._interactor;
         const scene = this.model.scene;
         console.log('in convert arrays')
-        console.log(scene)
+//        console.log(scene)
         const selection = this.model.selection;
         const vtk: any = this._vtk;
 	const { registerArray } = this;
@@ -118,6 +118,7 @@ export class VTKPlotView extends HTMLBoxView {
         })
 
         Promise.all(promises).then(() => {
+            console.log('Synchronizing the scene')
             renderWindow.synchronize(JSON.parse(scene));
 
             renderWindow.render();
