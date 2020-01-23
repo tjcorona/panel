@@ -24,7 +24,11 @@ export class VTKPlotView extends HTMLBoxView {
 	this._jszip = (window as any).JSZip;
 	this._arrays = {};
 	// Internal closures
-	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
+//	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
+	this.getArray = (hash: string) => {
+            console.log('getArray:', hash)
+            return Promise.resolve(this._arrays[hash]);
+        };
 	this.resize = () => {
 	    if (this.el && this._openGLRenderWindow) {
 		const dims = this.el.getBoundingClientRect();
@@ -38,6 +42,7 @@ export class VTKPlotView extends HTMLBoxView {
 	};
  	this.registerArray = (hash: string, array: any) =>
 	    {
+                console.log('registerArray:', hash)
 		this._arrays[hash] = array;
                 return true;
 	    };
@@ -93,16 +98,15 @@ export class VTKPlotView extends HTMLBoxView {
     }
 
     _convert_arrays(arrays: any): void {
+        if (this._arrays[Object.keys(arrays)[0]]) {
+            return;
+        }
 //	this._arrays = {};
 	const JSZip: any = this._jszip;
 	const jszip = new JSZip();
         const renderWindow = this._renderWindow;
-        const interactor = this._interactor;
         const scene = this.model.scene;
         console.log('in convert arrays')
-//        console.log(scene)
-        const selection = this.model.selection;
-        const vtk: any = this._vtk;
 	const { registerArray } = this;
 
         function load(key: string) {
@@ -114,129 +118,16 @@ export class VTKPlotView extends HTMLBoxView {
 
         let promises: any = [];
         Object.keys(arrays).forEach((key: string) => {
+            console.log('start decoding', key)
             promises.push(load(key));
         })
 
         Promise.all(promises).then(() => {
             console.log('Synchronizing the scene')
             renderWindow.synchronize(JSON.parse(scene));
+            console.log(JSON.parse(scene))
 
             renderWindow.render();
-
-            const renderer: any = renderWindow.getRenderers()[0];
-
-            const useHardwareSelector: any = false;
-
-        if (useHardwareSelector) {
-        // Add a hardware selector for point picking
-            const sel: any = vtk.Rendering.OpenGL.vtkHardwareSelector.newInstance();
-        sel.setFieldAssociation(vtk.Common.DataModel.DataSet.Constants.FieldAssociations.FIELD_ASSOCIATION_POINTS);
-        sel.attach(this._openGLRenderWindow, renderer);
-
-        // Pick on mouse right click
-            interactor.onRightButtonPress((callData: any) => {
-          if (renderer !== callData.pokedRenderer) {
-            return;
-          }
-
-            const pos: any = callData.position;
-            const point: any = [pos.x, pos.y, 0.0];
-          console.log(`Select at: ${point}`);
-
-          sel.setArea(pos.x, pos.y, pos.x, pos.y);
-          const seln = sel.select(pos.x, pos.y, pos.x, pos.y);
-          if (seln.length !== 0) {
-            console.log('converted to', seln[0].getSelectionList()[0]);
-          }
-
-          renderWindow.render();
-        });
-      } else {
-        // ----------------------------------------------------------------------------
-        // Setup picking interaction
-        // ----------------------------------------------------------------------------
-        // Only try to pick cone points
-          const picker: any = vtk.Rendering.Core.vtkPointPicker.newInstance();
-
-        // Pick on mouse right click
-          interactor.onRightButtonPress((callData: any) => {
-          if (renderer !== callData.pokedRenderer) {
-            return;
-          }
-
-            const pos: any = callData.position;
-            const point: any = [pos.x, pos.y, 0.0];
-            console.log(`Pick at: ${point}`);
-            picker.pick(point, renderer);
-
-              let ppoint: any = {};
-          if (picker.getActors().length === 0) {
-              const pickedPoint: any = picker.getPickPosition();
-            console.log(`No point picked, default: ${pickedPoint}`);
-//              ppoint['x'] = pickedPoint[0];
-//              ppoint['y'] = pickedPoint[1];
-//              ppoint['z'] = pickedPoint[2];
-              ppoint['xyz'] = [ pickedPoint[0], pickedPoint[1], pickedPoint[2]];
-              const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
-            sphere.setCenter(pickedPoint);
-            sphere.setRadius(0.01);
-              const sphereMapper: any = vtk.Rendering.Core.vtkMapper.newInstance();
-            sphereMapper.setInputData(sphere.getOutputData());
-              const sphereActor: any = vtk.Rendering.Core.vtkActor.newInstance();
-            sphereActor.setMapper(sphereMapper);
-            sphereActor.getProperty().setColor(1.0, 0.0, 0.0);
-            renderer.addActor(sphereActor);
-          } else {
-              const pickedPointId: any = picker.getPointId();
-            console.log('Picked point: ', pickedPointId);
-
-              const pickedPoints: any = picker.getPickedPositions();
-            for (let i = 0; i < pickedPoints.length; i++) {
-                const pickedPoint: any = pickedPoints[i];
-              console.log(`Picked: ${pickedPoint}`);
-//              ppoint['x'] = pickedPoint[0];
-//              ppoint['y'] = pickedPoint[1];
-//              ppoint['z'] = pickedPoint[2];
-              ppoint['xyz'] = [ pickedPoint[0], pickedPoint[1], pickedPoint[2]];
-                console.log(vtk)
-                const sphere: any = vtk.Filters.Sources.vtkSphereSource.newInstance();
-              sphere.setCenter(pickedPoint);
-              sphere.setRadius(0.01);
-                const sphereMapper: any = vtk.Rendering.Core.vtkMapper.newInstance();
-              sphereMapper.setInputData(sphere.getOutputData());
-                const sphereActor: any = vtk.Rendering.Core.vtkActor.newInstance();
-              sphereActor.setMapper(sphereMapper);
-              sphereActor.getProperty().setColor(0.0, 1.0, 0.0);
-              renderer.addActor(sphereActor);
-            }
-          }
-//              console.log(selection)
-              console.log('typeof selection:', typeof selection)
-              console.log('selection:', selection)
-
-//    for (const column of cds.columns()) {
-//      const shape: number[] = cds._shapes[column][0];
-//      let array = cds.get_array(column)[0];
-//      if (shape.length > 1) {
-//        const arrays = [];
-//        for (let s = 0; s < shape[0]; s++) {
-//          arrays.push(array.slice(s*shape[1], (s+1)*shape[1]));
-//        }
-//        array = arrays;
-//      }
-
-              console.log('data before:', selection.attributes.data)
-              selection.attributes.data.xyz[0] = ppoint['xyz'][0];
-              selection.attributes.data.xyz[1] = ppoint['xyz'][1];
-              selection.attributes.data.xyz[2] = ppoint['xyz'][2];
-              console.log('data after:', selection.attributes.data)
-//              selection.attributes.data.xyz = [ppoint['xyz']];
-//              console.log('selection attributes data xyz:', selection.attributes.data.xyz)
-              selection.change.emit();
-          renderWindow.render();
-        });
-      }
-
         });
     }
     
