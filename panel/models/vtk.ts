@@ -167,6 +167,10 @@ export class VTKPlotView extends HTMLBoxView {
             console.log('arrays have changed')
             this._decode_arrays();
         })
+        this.connect(this.model.properties.arrays_changed.change, () => {
+            console.log('arrays_changed has changed')
+            this._decode_arrays();
+        })
 	this.connect(this.model.properties.enable_keybindings.change, () => this._key_binding())
     }
 }
@@ -177,6 +181,7 @@ export namespace VTKPlot {
   export type Props = HTMLBox.Props & {
     scene: p.Property<string>
     arrays: p.Property<any>
+    arrays_changed: p.Property<boolean>
     append: p.Property<boolean>
     camera: p.Property<any>
     selection: p.Property<any>
@@ -206,6 +211,7 @@ export class VTKPlot extends HTMLBox {
     this.define<VTKPlot.Props>({
       scene:              [ p.String         ],
       arrays:             [ p.Any, {}        ],
+      arrays_changed:     [ p.Boolean, false ],
       append:             [ p.Boolean, false ],
       camera:             [ p.Any            ],
       selection:          [ p.Any            ],

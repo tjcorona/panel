@@ -51,8 +51,9 @@ class VTK(PaneBase):
 
     scene = param.String(doc="""Description of the VTK scene""")
     arrays = param.Dict(doc="""Dict of gzipped VTK data arrays""")
+    arrays_changed  = param.Boolean(default=False, doc="""Dummy flag to signal array updates""")
 
-    _rerender_params = ['object', 'scene', 'arrays']
+    _rerender_params = ['object', 'scene', 'arrays', 'arrays_changed']
 
     @classmethod
     def applies(cls, obj):
@@ -90,7 +91,7 @@ class VTK(PaneBase):
 
         if root is None:
             root = model
-        self._link_props(model, [ 'scene', 'arrays', 'camera', 'selection', 'enable_keybindings'], doc, root, comm)
+        self._link_props(model, [ 'scene', 'arrays', 'arrays_changed', 'camera', 'selection', 'enable_keybindings'], doc, root, comm)
         self._models[root.ref['id']] = (model, parent)
         return model
 
@@ -122,5 +123,6 @@ class VTK(PaneBase):
     def _update(self, model):
         model.scene, local_arrays = self._get_vtkjs()
         model.arrays.update(local_arrays)
+        model.arrays_changed = not model.arrays_changed
         print('new arrays:', model.arrays.keys())
 
