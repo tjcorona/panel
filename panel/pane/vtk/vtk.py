@@ -53,7 +53,8 @@ class VTK(PaneBase):
     arrays = param.Dict(doc="""Dict of gzipped VTK data arrays""")
     arrays_changed  = param.Boolean(default=False, doc="""Dummy flag to signal array updates""")
 
-    _rerender_params = ['object', 'scene', 'arrays', 'arrays_changed']
+#    _rerender_params = ['object', 'scene', 'arrays', 'arrays_changed']
+    _rerender_params = ['object', 'scene']
 
     @classmethod
     def applies(cls, obj):

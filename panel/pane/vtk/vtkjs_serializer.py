@@ -47,7 +47,7 @@ def render_window_serializer(render_window):
                 encoded_scene = zf.read(zf.infolist()[0])
                 scene = encoded_scene.decode("utf-8")
         else:
-            print('In serialize: array hash =', filename)
-            arrays[filename] = base64encode(stream.read())
+            if not filename in arrays:
+                arrays[filename] = base64encode(stream.read())
 
     return (scene, arrays)

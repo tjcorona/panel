@@ -161,7 +161,6 @@ export class VTKPlotView extends HTMLBoxView {
         this.connect(this.model.properties.scene.change, () => {
             console.log('scene has changed')
             this._plot();
-            this._decode_arrays();
         })
         this.connect(this.model.properties.arrays.change, () => {
             console.log('arrays have changed')
