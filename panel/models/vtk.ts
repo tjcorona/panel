@@ -14,6 +14,7 @@ export class VTKPlotView extends HTMLBoxView {
     protected _interactor: any
     protected _state: any
     protected _arrays: any
+    protected _pending_arrays: any
     public getArray: any
     public resize: any
     public registerArray: any
@@ -23,12 +24,20 @@ export class VTKPlotView extends HTMLBoxView {
 	this._vtk = (window as any).vtk;
 	this._jszip = (window as any).JSZip;
 	this._arrays = {};
+        this._pending_arrays = {};
 	// Internal closures
 //	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
 	this.getArray = (hash: string) => {
-            console.log('getArray:', hash)
+        if (this._arrays[hash]) {
+            console.log('get array', hash);
             return Promise.resolve(this._arrays[hash]);
-        };
+        }
+
+        console.log('get array (pending)', hash);
+        return new Promise((resolve, reject) => {
+            this._pending_arrays[hash] = { resolve, reject };
+        });
+    };
 	this.resize = () => {
 	    if (this.el && this._openGLRenderWindow) {
 		const dims = this.el.getBoundingClientRect();
@@ -42,14 +51,18 @@ export class VTKPlotView extends HTMLBoxView {
 	};
  	this.registerArray = (hash: string, array: any) =>
 	    {
-                console.log('registerArray:', hash)
-		this._arrays[hash] = array;
-                return true;
+        console.log('registerArray:', hash)
+        this._arrays[hash] = array;
+        if (this._pending_arrays[hash]) {
+            this._pending_arrays[hash].resolve(array);
+        }
+        return true;
 	    };
 	window.addEventListener("resize", this.resize);
     }
     
     after_layout(): void {
+        console.log('after_layout')
 	if (!this._synchContext) {
 	    const container = this.el;
 	    
@@ -82,6 +95,7 @@ export class VTKPlotView extends HTMLBoxView {
 	    this._interactor.initialize();
 	    this._interactor.bindEvents(container);
 	    
+            this._decode_arrays();
 	    this._plot();
 	    this._key_binding();
 
@@ -96,18 +110,20 @@ export class VTKPlotView extends HTMLBoxView {
 	}
 	super.after_layout();
     }
+    
+    _plot(): void{
+        console.log('plot')
+        this._renderWindow.synchronize(JSON.parse(this.model.scene));
+        this._renderWindow.render();
+    }
 
-    _convert_arrays(arrays: any): void {
-        if (this._arrays[Object.keys(arrays)[0]]) {
-            return;
-        }
-//	this._arrays = {};
-	const JSZip: any = this._jszip;
-	const jszip = new JSZip();
-        const renderWindow = this._renderWindow;
-        const scene = this.model.scene;
-        console.log('in convert arrays')
-	const { registerArray } = this;
+    _decode_arrays(): void {
+        console.log('decode arrays')
+        const JSZip: any = this._jszip;
+        const jszip = new JSZip();
+        const promises: any = [];
+        const arrays: any = this.model.arrays;
+        const registerArray: any = this.registerArray;
 
         function load(key: string) {
             return jszip.loadAsync(atob(arrays[key]))
@@ -116,25 +132,12 @@ export class VTKPlotView extends HTMLBoxView {
                 .then((arraybuffer: any) => registerArray(key, arraybuffer));
         }
 
-        let promises: any = [];
         Object.keys(arrays).forEach((key: string) => {
             console.log('start decoding', key)
             promises.push(load(key));
         })
 
-        Promise.all(promises).then(() => {
-            console.log('Synchronizing the scene')
-            renderWindow.synchronize(JSON.parse(scene));
-            console.log(JSON.parse(scene))
-
-            renderWindow.render();
-        });
-    }
-    
-    _plot(): void{
-	if (this.model.arrays) {
-	    this._convert_arrays(this.model.arrays);
-	}
+        Promise.all(promises).then(this._renderWindow.render)
     }
 
     _key_binding(): void {
@@ -155,7 +158,14 @@ export class VTKPlotView extends HTMLBoxView {
 
     connect_signals(): void {
 	super.connect_signals()
-	this.connect(this.model.properties.scene.change, () => this._plot())
+        this.connect(this.model.properties.scene.change, () => {
+            console.log('scene has changed')
+            return this._plot();
+        })
+        this.connect(this.model.properties.arrays.change, () => {
+            console.log('arrays have changed')
+            return this._decode_arrays();
+        })
 	this.connect(this.model.properties.enable_keybindings.change, () => this._key_binding())
     }
 }

@@ -52,7 +52,7 @@ class VTK(PaneBase):
     scene = param.String(doc="""Description of the VTK scene""")
     arrays = param.Dict(doc="""Dict of gzipped VTK data arrays""")
 
-    _rerender_params = ['object', 'scene', 'arrays']
+    _rerender_params = ['object', 'arrays', 'scene']
 
     @classmethod
     def applies(cls, obj):
@@ -81,6 +81,10 @@ class VTK(PaneBase):
             VTKPlot = getattr(sys.modules['panel.models.vtk'], 'VTKPlot')
 
         self.scene, self.arrays = self._get_vtkjs()
+#        self.scene, local_arrays = self._get_vtkjs()
+#        for key in local_arrays:
+#            self.arrays[key] = local_arrays[key]
+#        self.arrays.update(local_arrays)
         props = self._process_param_change(self._init_properties())
         model = VTKPlot(selection=self.selection, **props)
 
