@@ -120,7 +120,7 @@ class VTK(PaneBase):
 
     def _update(self, model):
         model.scene, local_arrays = self._get_vtkjs()
-        model.arrays.clear()
+#        model.arrays.clear()
         model.arrays.update(local_arrays)
 
 #        model.arrays_changed = not model.arrays_changed

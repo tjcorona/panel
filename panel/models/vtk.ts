@@ -14,6 +14,7 @@ export class VTKPlotView extends HTMLBoxView {
     protected _interactor: any
     protected _state: any
     protected _arrays: any
+    protected _decoded_arrays: any
     protected _pending_arrays: any
     public getArray: any
     public resize: any
@@ -24,6 +25,7 @@ export class VTKPlotView extends HTMLBoxView {
 	this._vtk = (window as any).vtk;
 	this._jszip = (window as any).JSZip;
 	this._arrays = {};
+        this._decoded_arrays = {};
         this._pending_arrays = {};
 	// Internal closures
 //	this.getArray = (hash: string) => Promise.resolve(this._arrays[hash]);
@@ -133,8 +135,12 @@ export class VTKPlotView extends HTMLBoxView {
         }
 
         Object.keys(arrays).forEach((key: string) => {
-            console.log('start decoding', key)
-            promises.push(load(key));
+            if (!this._decoded_arrays[key])
+            {
+                this._decoded_arrays[key] = true;
+                console.log('start decoding', key)
+                promises.push(load(key));
+            }
         })
 
         Promise.all(promises).then(this._renderWindow.render)
