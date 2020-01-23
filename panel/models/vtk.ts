@@ -160,11 +160,12 @@ export class VTKPlotView extends HTMLBoxView {
 	super.connect_signals()
         this.connect(this.model.properties.scene.change, () => {
             console.log('scene has changed')
-            return this._plot();
+            this._plot();
+            this._decode_arrays();
         })
         this.connect(this.model.properties.arrays.change, () => {
             console.log('arrays have changed')
-            return this._decode_arrays();
+            this._decode_arrays();
         })
 	this.connect(this.model.properties.enable_keybindings.change, () => this._key_binding())
     }

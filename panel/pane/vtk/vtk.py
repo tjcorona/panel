@@ -52,7 +52,7 @@ class VTK(PaneBase):
     scene = param.String(doc="""Description of the VTK scene""")
     arrays = param.Dict(doc="""Dict of gzipped VTK data arrays""")
 
-    _rerender_params = ['object', 'arrays', 'scene']
+    _rerender_params = ['object', 'scene', 'arrays']
 
     @classmethod
     def applies(cls, obj):
@@ -120,6 +120,7 @@ class VTK(PaneBase):
         return (None, None)
 
     def _update(self, model):
-        model.scene, model.arrays = self._get_vtkjs()
+        model.scene, local_arrays = self._get_vtkjs()
+        model.arrays.update(local_arrays)
         print('new arrays:', model.arrays.keys())
 
